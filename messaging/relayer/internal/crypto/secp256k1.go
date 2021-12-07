@@ -61,14 +61,20 @@ func Secp256k1Equals(sk, other []byte) bool {
 }
 
 // Secp256k1Verify checks the given signature and returns true if it is valid.
-func Secp256k1Verify(pk, msg, signature []byte) bool {
+func Secp256k1Verify(pk, toBeVerified, signature []byte) bool {
+	digest := Keccak256(toBeVerified)
+	return Secp256k1VerifyDigest(pk, digest, signature)
+}
+
+// Secp256k1Verify checks the given signature and returns true if it is valid.
+func Secp256k1VerifyDigest(pk, digest, signature []byte) bool {
 	if len(signature) == 65 {
 		// Drop the V (1byte) in [R | S | V] style signatures.
 		// The V (1byte) is the recovery bit and is not apart of the signature verification.
-		return secp256k1.VerifySignature(pk[:], msg, signature[:len(signature)-1])
+		return secp256k1.VerifySignature(pk[:], digest, signature[:len(signature)-1])
 	}
 
-	return secp256k1.VerifySignature(pk[:], msg, signature)
+	return secp256k1.VerifySignature(pk[:], digest, signature)
 }
 
 // Secp256k1GenerateKeyFromSeed generates a new key from the given reader.
