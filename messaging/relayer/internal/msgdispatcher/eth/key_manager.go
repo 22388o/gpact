@@ -3,6 +3,17 @@ Package eth - Message dispatcher for Ethereum Clients.
 */
 package eth
 
+import (
+	"context"
+	"crypto/ecdsa"
+	"fmt"
+
+	log "github.com/consensys/gpact/messaging/relayer/internal/logging"
+
+	//gethcommon "github.com/ethereum/go-ethereum/common"
+	gethcrypto "github.com/ethereum/go-ethereum/crypto"
+)
+
 /*
  * Copyright 2021 ConsenSys Software Inc.
  *
@@ -21,19 +32,58 @@ package eth
 // KeyManager holds one or more Ethereum keys, or manages access to the keys.
 // TODO: For the moment, just use one key pair.
 type KeyManager struct {
-	privKey []byte
+	keys          []EthKey
+	current       int
+	msgDispatcher *MsgDispatcher
+}
+
+type EthKey struct {
+	privKey *ecdsa.PrivateKey
 	nonce   uint64
 }
 
 // NewKeyManager creates a new key manager.
-func NewKeyManager() (*KeyManager, error) {
+func NewKeyManager(m *MsgDispatcher) *KeyManager {
 	var k = KeyManager{}
-
-	return &k, nil
+	k.msgDispatcher = m
+	return &k
 }
 
 // AddKey adds a key that can be used by the key manager.
-func (k *KeyManager) AddKey(privKey []byte, nonce uint64) {
-	k.privKey = privKey
-	k.nonce = nonce
+func (k *KeyManager) AddKey(privKeyBytes []byte) (int, error) {
+	privKey, err := gethcrypto.ToECDSA(privKeyBytes)
+	if err != nil {
+		return 0, err
+	}
+
+	publicKey := privKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		err = fmt.Errorf("error casting public key to ECDSA: %v", err.Error())
+		log.Fatal("error casting public key to ECDSA")
+	}
+
+	addr := gethcrypto.PubkeyToAddress(*publicKeyECDSA)
+	nonce, err := k.msgDispatcher.connection.PendingNonceAt(context.Background(), addr)
+	if err != nil {
+		return 0, err
+	}
+	key := EthKey{privKey, nonce}
+	k.keys = append(k.keys, key)
+
+	return len(k.keys), nil
+
+}
+
+// GetNextKeyAndIncNonce returns the next private key to use and increments
+// nonce value for the key, so it will be ready for next time.
+func (k *KeyManager) GetNextKeyAndIncNonce() (*ecdsa.PrivateKey, uint64) {
+	// TODO this operation needs locking around it.
+
+	k.current = (k.current + 1) % len(k.keys)
+	key := &k.keys[k.current]
+	oldNonce := key.nonce
+	key.nonce++
+
+	return key.privKey, oldNonce
 }

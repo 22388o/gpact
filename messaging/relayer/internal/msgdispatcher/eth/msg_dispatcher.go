@@ -35,10 +35,10 @@ import (
 // MsgDispatcher holds the context for submitting transactions
 // to an Ethereum Client.
 type MsgDispatcher struct {
-	endpoint                  string     // URL without protocol specifier of Ethereum client.
-	http                      bool       // HTTP or WS
-	apiAuthKey                string     // Authentication key to access the Ethereum API.
-	keyManager                KeyManager // Holds all keys for this dispatcher.
+	endpoint                  string      // URL without protocol specifier of Ethereum client.
+	http                      bool        // HTTP or WS
+	apiAuthKey                string      // Authentication key to access the Ethereum API.
+	keyManager                *KeyManager // Holds all keys for this dispatcher.
 	crosschainControlContract *gethcommon.Address
 	chainID                   *big.Int
 
@@ -51,7 +51,6 @@ type MsgDispatcherConfig struct {
 	endpoint   string // URL without protocol specifier of Ethereum client.
 	http       bool   // HTTP or WS
 	apiAuthKey string // Authentication key to access the Ethereum API.
-	keyManager KeyManager
 
 	crosschainControlContract *gethcommon.Address
 }
@@ -62,12 +61,17 @@ func NewMsgDispatcher(c *MsgDispatcherConfig) (*MsgDispatcher, error) {
 	m.endpoint = c.endpoint
 	m.http = c.http
 	m.apiAuthKey = c.apiAuthKey
+	m.crosschainControlContract = c.crosschainControlContract
 
-	m.keyManager = c.keyManager
+	m.keyManager = NewKeyManager(&m)
 
 	log.Info("Message Dispatcher (Eth) for %v", c.endpoint)
 
 	return &m, nil
+}
+
+func (m *MsgDispatcher) GetKeyManager() (keyManager *KeyManager) {
+	return m.keyManager
 }
 
 // Connect attempts to use the configuration to connect to the end point.
@@ -86,16 +90,22 @@ func (m *MsgDispatcher) Connect() error {
 	}
 	m.connection = gethclient.NewClient(rpcClient)
 
+	// Derive information from the blockchain.
+	m.chainID, err = m.connection.NetworkID(context.Background())
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (m *MsgDispatcher) SubmitTransaction(txData []byte) error {
+func (m *MsgDispatcher) SubmitTransaction(txData []byte) (gethcommon.Hash, error) {
 	// TODO support Legacy transactions, for consortium blockchains and other blockchains that don't support EIP 1559.
 	return m.submitEIP1559Transaction(txData)
 }
 
-// submitEIP1559Transaction submits a transaction to an EIP1559 blockchain.
-func (m *MsgDispatcher) submitEIP1559Transaction(txData []byte) error {
+// submitEIP1559Transaction submits a transaction to an EIP1559 blockchain. Return the trransaction hash.
+func (m *MsgDispatcher) submitEIP1559Transaction(txData []byte) (gethcommon.Hash, error) {
 
 	feeCap := big.NewInt(10000000)
 	tip := big.NewInt(10000000)
@@ -104,9 +114,11 @@ func (m *MsgDispatcher) submitEIP1559Transaction(txData []byte) error {
 	value := big.NewInt(0)
 	//txData := make([]byte, 0)
 
+	privKey, nonce := m.keyManager.GetNextKeyAndIncNonce()
+
 	tx := gethtypes.NewTx(&gethtypes.DynamicFeeTx{
 		ChainID:   m.chainID,
-		Nonce:     m.keyManager.nonce,
+		Nonce:     nonce,
 		GasFeeCap: feeCap,
 		GasTipCap: tip,
 		Gas:       gas,
@@ -115,6 +127,13 @@ func (m *MsgDispatcher) submitEIP1559Transaction(txData []byte) error {
 		Data:      txData,
 	})
 
-	return m.connection.SendTransaction(context.Background(), tx)
+	signedTx, err := gethtypes.SignTx(tx, gethtypes.NewEIP155Signer(m.chainID), privKey)
+	if err != nil {
+		empty := make([]byte, gethcommon.HashLength)
+		return gethcommon.BytesToHash(empty), err
+	}
 
+	err = m.connection.SendTransaction(context.Background(), signedTx)
+
+	return signedTx.Hash(), err
 }
