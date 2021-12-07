@@ -18,14 +18,11 @@ package eth
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// import (
-// 	"github.com/ConsenSys/gpact/messaging/relayer/internal/crypto"
-// )
-
 // KeyManager holds one or more Ethereum keys, or manages access to the keys.
 // TODO: For the moment, just use one key pair.
 type KeyManager struct {
-	//	keyPair *crypto.KeyPairSecp256k1
+	privKey []byte
+	nonce   uint64
 }
 
 // NewKeyManager creates a new key manager.
@@ -36,6 +33,7 @@ func NewKeyManager() (*KeyManager, error) {
 }
 
 // AddKey adds a key that can be used by the key manager.
-// func (k *KeyManager) AddKey(keyPair *crypto.KeyPairSecp256k1) {
-// 	k.keyPair = keyPair
-// }
+func (k *KeyManager) AddKey(privKey []byte, nonce uint64) {
+	k.privKey = privKey
+	k.nonce = nonce
+}
