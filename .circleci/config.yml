@@ -263,9 +263,40 @@ jobs:
           command: make build
           working_directory: ~/project/messaging/relayer
       - run:
+          name: Create and Start blockchains
+          working_directory: test-blockchains
+          background: true
+          command: docker-compose up
+      - run:
           name: Build test code and execute unit tests
           command: make utest
           working_directory: ~/project/messaging/relayer
+      - run:
+          name: Stop blockchains
+          working_directory: test-blockchains
+          command: docker-compose stop
+          when: always
+      - run:
+          name: Logs from bc31
+          working_directory: test-blockchains
+          command: |
+            docker container logs test-blockchains_bc31node1_1
+          when: always
+      - run:
+          name: Logs from bc32
+          working_directory: test-blockchains
+          command: |
+            docker container logs test-blockchains_bc32node1_1
+          when: always
+      - run:
+          name: Remove blockchains
+          working_directory: test-blockchains
+          command: docker-compose down
+          when: always
+      - store_test_results:
+          path: ~/test-results
+      - store_artifacts:
+          path: ~/test-results/junit
 
 
 
