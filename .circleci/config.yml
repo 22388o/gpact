@@ -280,7 +280,7 @@ jobs:
       - run:
           name: Build production code
           command: make build
-          working_directory: ~/project/messaging/relayer
+          working_directory: ~/messaging/relayer
       - run:
           name: Create and Start blockchains
           working_directory: test-blockchains
@@ -289,7 +289,7 @@ jobs:
       - run:
           name: Build test code and execute unit tests
           command: make utest
-          working_directory: ~/project/messaging/relayer
+          working_directory: ~/messaging/relayer
       - run:
           name: Stop blockchains
           working_directory: test-blockchains
