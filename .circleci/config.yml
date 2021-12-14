@@ -334,8 +334,8 @@ workflows:
       - relayer-test:
           requires:
             - relayer-build
-#      - unitTestsMachine:
-#          requires:
-#            - relayer-build
+      - unitTestsMachine:
+          requires:
+            - relayer-build
 
 
