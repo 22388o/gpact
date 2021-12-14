@@ -264,11 +264,9 @@ jobs:
           working_directory: ~/project/messaging/relayer
 
   relayer-test:
-    docker:
-      - image: cimg/go:1.17.3
-    environment:
-      TERM: xterm-256color
-      COLORTERM: 24bit
+    machine:
+      image: ubuntu-2004:202107-02
+    resource_class: large
     steps:
       - checkout
       - run:
@@ -277,6 +275,8 @@ jobs:
             date -Is
             echo; git -P reflog --date=iso
             go version
+            pwd
+            ls -al
       - run:
           name: Build production code
           command: make build
@@ -323,11 +323,8 @@ workflows:
       - relayer-test:
           requires:
             - relayer-build
-      - unitTestsMachine:
-          requires:
-            - relayer-build
-      #- unitTestsMachine:
-      #    requires:
-      #      - build
+#      - unitTestsMachine:
+#          requires:
+#            - relayer-build
 
 
