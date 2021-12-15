@@ -7,15 +7,14 @@ import (
 	//	"crypto"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"context"
 	"crypto/ecdsa"
-	"fmt"
-	"log"
 	"math/big"
 
-	//	log "github.com/consensys/gpact/messaging/relayer/internal/logging"
-
-	//	"github.com/stretchr/testify/assert"
+	rcrypto "github.com/consensys/gpact/messaging/relayer/internal/crypto"
+	log "github.com/consensys/gpact/messaging/relayer/internal/logging"
 
 	gethbind "github.com/ethereum/go-ethereum/accounts/abi/bind"
 
@@ -43,47 +42,65 @@ func TestFreeConsortiumTransaciton(t *testing.T) {
 
 	// Deploy contract
 	client, err := gethclient.Dial("http://127.0.0.1:8310")
-	if err != nil {
-		log.Fatal(err)
-	}
+	assert.Nil(t, err)
 
-	privateKey, err := gethcrypto.HexToECDSA("fad9c8855b740a0b7ed4c221dbad0f33a83a49cad6b3fe8d5817ac83d38b6a19")
-	if err != nil {
-		log.Fatal(err)
-	}
+	blockchainId := big.NewInt(31)
+
+	// Use a different account each time to ensure this test execution doesn't clash with
+	// any other execution.
+	privKeyBytes, err := rcrypto.Secp256k1GenerateKey()
+	assert.Nil(t, err)
+	privateKey, err := gethcrypto.ToECDSA(privKeyBytes)
+	assert.Nil(t, err)
 
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		log.Fatal("error casting public key to ECDSA")
-	}
+	assert.True(t, ok, "error casting public key to ECDSA")
 
 	fromAddress := gethcrypto.PubkeyToAddress(*publicKeyECDSA)
 	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
-	if err != nil {
-		log.Fatal(err)
-	}
+	assert.Nil(t, err)
 
 	gasPrice, err := client.SuggestGasPrice(context.Background())
-	if err != nil {
-		log.Fatal(err)
-	}
+	assert.Nil(t, err)
 
 	auth := gethbind.NewKeyedTransactor(privateKey)
 	auth.Nonce = big.NewInt(int64(nonce))
-	auth.Value = big.NewInt(0)     // in wei
-	auth.GasLimit = uint64(300000) // in units
+	auth.Value = big.NewInt(0) // in wei
+	auth.GasLimit = uint64(0)  // in units
 	auth.GasPrice = gasPrice
 
-	address, tx, instance, err := DeployMsgdispatchertest(auth, client)
-	if err != nil {
-		log.Fatal(err)
-	}
+	testRegistrarAddress, testRegistrarTxReceipt, _ /*testRegistrarInstance */, err := DeployTestRegistrar(auth, client)
+	assert.Nil(t, err)
+	log.Info("Registrar address: %s", testRegistrarAddress.Hex())
+	log.Info("Registrar deploy tx receipt: %s", testRegistrarTxReceipt.Hash().Hex())
 
-	fmt.Println(address.Hex())   // 0x147B8eb97fD247D06C4006D269c90C1908Fb5D54
-	fmt.Println(tx.Hash().Hex()) // 0xdae8ba5444eefdc99f4d45cd0c4f24056cba6a02cefbf78066ef9f4188ff7dc0
+	nonce++
+	auth.Nonce = big.NewInt(int64(nonce))
 
-	_ = instance
+	sfcTimeHorizon := big.NewInt(1000) // Time horizon in seconds.
+	testSfcAddress, testSfcTxReceipt, _ /*testSfcInstance */, err := DeployTestsfc(auth, client, blockchainId, sfcTimeHorizon)
+	assert.Nil(t, err)
+	log.Info("Sfc address: %s", testSfcAddress.Hex())
+	log.Info("Sfc deploy tx receipt: %s", testSfcTxReceipt.Hash().Hex())
+
+	nonce++
+	auth.Nonce = big.NewInt(int64(nonce))
+
+	eventStoreAddress, eventStoreTxReceipt, _ /* eventStoreInstance */, err := DeployTestsignedeventstore(auth, client, testRegistrarAddress, testSfcAddress)
+	assert.Nil(t, err)
+	log.Info("Signed Event Store address: %s", eventStoreAddress.Hex())
+	log.Info("Signed Event Store deploy tx receipt: %s", eventStoreTxReceipt.Hash().Hex())
+
+	nonce++
+	auth.Nonce = big.NewInt(int64(nonce))
+
+	testMsgDispatcherAddress, testMsgDispatcherTxReceipt, _ /*testMsgDispatcherInstance*/, err := DeployTestmsgdispatcher(auth, client)
+	assert.Nil(t, err)
+	log.Info("Test contract address: %s", testMsgDispatcherAddress.Hex())
+	log.Info("Test contract deploy tx receipt: %s", testMsgDispatcherTxReceipt.Hash().Hex())
+
+	// Configure registrar, SFC, and Signed Event Store contracts.
 
 	// Submit a transaction that calls a function.
 
