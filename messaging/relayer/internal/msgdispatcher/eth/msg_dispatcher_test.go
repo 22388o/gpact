@@ -70,7 +70,7 @@ func TestFreeConsortiumTransaciton(t *testing.T) {
 	auth.GasLimit = uint64(0)  // in units
 	auth.GasPrice = gasPrice
 
-	testRegistrarAddress, testRegistrarTxReceipt, _ /*testRegistrarInstance */, err := DeployTestRegistrar(auth, client)
+	testRegistrarAddress, testRegistrarTxReceipt, registrarInstance, err := DeployTestRegistrar(auth, client)
 	assert.Nil(t, err)
 	log.Info("Registrar address: %s", testRegistrarAddress.Hex())
 	log.Info("Registrar deploy tx receipt: %s", testRegistrarTxReceipt.Hash().Hex())
@@ -100,9 +100,80 @@ func TestFreeConsortiumTransaciton(t *testing.T) {
 	log.Info("Test contract address: %s", testMsgDispatcherAddress.Hex())
 	log.Info("Test contract deploy tx receipt: %s", testMsgDispatcherTxReceipt.Hash().Hex())
 
+	nonce++
+	auth.Nonce = big.NewInt(int64(nonce))
+
 	// Configure registrar, SFC, and Signed Event Store contracts.
+	sourceBcId := big.NewInt(2)
+	// TODO have separate key pair for event signing.
+	signerAddress := fromAddress // Reuse the credentials used for deploying the contracts as the one and only event signer.
+	signingThreshold := big.NewInt(1)
+	registrarInstance.AddSignerSetThreshold(auth, sourceBcId, signerAddress, signingThreshold)
+
+	// Configure the message dispatcher.
+	var config = MsgDispatcherConfig{}
+	config.endpoint = "http://127.0.0.1:8310"
+	config.http = false
+	config.apiAuthKey = ""
+	config.eventStoreAddress = &eventStoreAddress
+	config.blockchainType = ZeroCostConsortium
+
+	msgDispatcher, err := NewMsgDispatcher(&config)
+	assert.Nil(t, err)
+	// NOTE: Connect before adding keys.
+	err = msgDispatcher.Connect()
+	assert.Nil(t, err)
+
+	keyManager := msgDispatcher.GetKeyManager()
+	keyManager.AddKey(privKeyBytes)
 
 	// Submit a transaction that calls a function.
+	// TODO ABI Encode packed with selector:
+	// crossCallHandler(
+	//     uint256 _sourceBcId,
+	//     address _cbcAddress,
+	//     bytes calldata _eventData,
+	//     bytes calldata _signature
+	// where: _eventData is:
+	//        bytes32 txId;
+	// uint256 timestamp;
+	// address caller;
+	// uint256 destBcId;
+	// address destContract;
+	// bytes memory functionCall;
+	// (txId, timestamp, caller, destBcId, destContract, functionCall) = abi
+	// 	.decode(
+	// 		_eventData,
+	// 		(bytes32, uint256, address, uint256, address, bytes)
+	// and where: _signature is:
+	//   uint32 len = BytesUtil.bytesToUint32(_signature, 0);
+	// {
+	// 	require(
+	// 		_signature.length == LEN_OF_LEN + len * LEN_OF_SIG,
+	// 		"Signature incorrect length"
+	// 	);
+
+	// 	signers = new address[](len);
+	// 	sigRs = new bytes32[](len);
+	// 	sigSs = new bytes32[](len);
+	// 	sigVs = new uint8[](len);
+
+	// 	uint256 offset = LEN_OF_LEN;
+	// 	for (uint256 i = 0; i < len; i++) {
+	// 		signers[i] = BytesUtil.bytesToAddress2(_signature, offset);
+	// 		offset += 20;
+	// 		sigRs[i] = BytesUtil.bytesToBytes32(_signature, offset);
+	// 		offset += 32;
+	// 		sigSs[i] = BytesUtil.bytesToBytes32(_signature, offset);
+	// 		offset += 32;
+	// 		sigVs[i] = BytesUtil.bytesToUint8(_signature, offset);
+	// 		offset += 1;
+
+	// TODO the code below havs problems reported as gas issues, but are probably nonce related.
+	// encodedTransaction := make([]byte, 32)
+	// hash, err := msgDispatcher.SubmitTransaction(encodedTransaction)
+	// assert.Nil(t, err)
+	// log.Info("Submitted transaction hash: %s", hash.Hex())
 
 	// Check that the transaction has executed by checking the contract state.
 

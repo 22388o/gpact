@@ -37,12 +37,12 @@ import (
 // MsgDispatcher holds the context for submitting transactions
 // to an Ethereum Client.
 type MsgDispatcher struct {
-	endpoint                  string      // URL without protocol specifier of Ethereum client.
-	http                      bool        // HTTP or WS
-	apiAuthKey                string      // Authentication key to access the Ethereum API.
-	keyManager                *KeyManager // Holds all keys for this dispatcher.
-	crosschainControlContract *gethcommon.Address
-	blockchainType            ChainType
+	endpoint          string      // URL without protocol specifier of Ethereum client.
+	http              bool        // HTTP or WS
+	apiAuthKey        string      // Authentication key to access the Ethereum API.
+	keyManager        *KeyManager // Holds all keys for this dispatcher.
+	eventStoreAddress *gethcommon.Address
+	blockchainType    ChainType
 
 	chainID    *big.Int
 	connection *gethclient.Client
@@ -51,11 +51,11 @@ type MsgDispatcher struct {
 // MsgDispatcherConfig holds variables needed to configure the message
 // dispatcher component.
 type MsgDispatcherConfig struct {
-	endpoint                  string // URL without protocol specifier of Ethereum client.
-	http                      bool   // HTTP or WS
-	apiAuthKey                string // Authentication key to access the Ethereum API.
-	crosschainControlContract *gethcommon.Address
-	blockchainType            ChainType
+	endpoint          string // URL without protocol specifier of Ethereum client.
+	http              bool   // HTTP or WS
+	apiAuthKey        string // Authentication key to access the Ethereum API.
+	eventStoreAddress *gethcommon.Address
+	blockchainType    ChainType
 }
 
 // NewMsgDispatcher creates a new message dispatcher instance.
@@ -64,7 +64,7 @@ func NewMsgDispatcher(c *MsgDispatcherConfig) (*MsgDispatcher, error) {
 	m.endpoint = c.endpoint
 	m.http = c.http
 	m.apiAuthKey = c.apiAuthKey
-	m.crosschainControlContract = c.crosschainControlContract
+	m.eventStoreAddress = c.eventStoreAddress
 	m.blockchainType = c.blockchainType
 
 	m.keyManager = NewKeyManager(&m)
@@ -134,7 +134,7 @@ func (m *MsgDispatcher) submitEIP1559Transaction(txData []byte) (gethcommon.Hash
 		GasFeeCap: feeCap,
 		GasTipCap: tip,
 		Gas:       gas,
-		To:        m.crosschainControlContract,
+		To:        m.eventStoreAddress,
 		Value:     value,
 		Data:      txData,
 	})
@@ -166,7 +166,7 @@ func (m *MsgDispatcher) submitFreeConsortiumTransaction(txData []byte) (gethcomm
 		Value:    value,
 		Gas:      gasLimit,
 		GasPrice: gasPrice,
-		To:       m.crosschainControlContract,
+		To:       m.eventStoreAddress,
 		Data:     txData,
 	})
 

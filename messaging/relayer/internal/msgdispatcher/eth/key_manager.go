@@ -61,6 +61,7 @@ func (k *KeyManager) AddKey(privKeyBytes []byte) (int, error) {
 	if !ok {
 		err = fmt.Errorf("error casting public key to ECDSA: %v", err.Error())
 		log.Fatal("error casting public key to ECDSA")
+		return 0, err
 	}
 
 	addr := gethcrypto.PubkeyToAddress(*publicKeyECDSA)
