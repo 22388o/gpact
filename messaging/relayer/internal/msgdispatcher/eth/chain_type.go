@@ -18,24 +18,19 @@ package eth
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// import (
-// 	"github.com/ConsenSys/gpact/messaging/relayer/internal/crypto"
-// )
+type ChainType uint16
 
-// KeyManager holds one or more Ethereum keys, or manages access to the keys.
-// TODO: For the moment, just use one key pair.
-type KeyManager struct {
-	//	keyPair *crypto.KeyPairSecp256k1
+const (
+	ZeroCostConsortium ChainType = iota
+	PublicEip1559
+)
+
+func (c ChainType) String() string {
+	switch c {
+	case ZeroCostConsortium:
+		return "Zero cost consortium"
+	case PublicEip1559:
+		return "Public EIP 1559"
+	}
+	return "unknown chain type"
 }
-
-// NewKeyManager creates a new key manager.
-func NewKeyManager() (*KeyManager, error) {
-	var k = KeyManager{}
-
-	return &k, nil
-}
-
-// AddKey adds a key that can be used by the key manager.
-// func (k *KeyManager) AddKey(keyPair *crypto.KeyPairSecp256k1) {
-// 	k.keyPair = keyPair
-// }
