@@ -31,6 +31,7 @@ services:
       #- ./logs/bc31:/tmp/besu
     ports:
       - 8310:8545/tcp
+      - 8311:8546
     networks:
       gpact-test:
         ipv4_address: 172.16.239.11
@@ -45,6 +46,7 @@ services:
       #- ./logs/bc32:/tmp/besu
     ports:
       - 8320:8545/tcp
+      - 8321:8546
     networks:
       gpact-test:
         ipv4_address: 172.16.239.12

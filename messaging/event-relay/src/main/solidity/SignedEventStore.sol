@@ -20,6 +20,9 @@ import "../../../../attestor-sign/src/main/solidity/AttestorSignRegistrar.sol";
 import "../../../../../functioncall/sfc/src/main/solidity/SimpleCrosschainControl.sol";
 
 contract SignedEventStore is CrosschainVerifier, BytesUtil {
+
+    event Dump (string _log);
+
     AttestorSignRegistrar registrar;
     SimpleCrosschainControl functionCall;
 
@@ -47,6 +50,28 @@ contract SignedEventStore is CrosschainVerifier, BytesUtil {
 
     uint256 constant LEN_OF_LEN = 4;
     uint256 constant LEN_OF_SIG = 20 + 32 + 32 + 1;
+
+    function uint2str(uint _i) internal pure returns (string memory _uintAsString) {
+        if (_i == 0) {
+            return "0";
+        }
+        uint j = _i;
+        uint len;
+        while (j != 0) {
+            len++;
+            j /= 10;
+        }
+        bytes memory bstr = new bytes(len);
+        uint k = len;
+        while (_i != 0) {
+            k = k-1;
+            uint8 temp = (48 + uint8(_i - _i / 10 * 10));
+            bytes1 b1 = bytes1(temp);
+            bstr[k] = b1;
+            _i /= 10;
+        }
+        return string(bstr);
+    }
 
     /**
      * For this implementation, the signatures have already been checked in the
@@ -124,6 +149,8 @@ contract SignedEventStore is CrosschainVerifier, BytesUtil {
             encodedEvent
         );
 
+        emit Dump("verify done");
+
         // Step 2: Record who signed the event.
         bytes32 eventDigest = keccak256(encodedEvent);
 
@@ -145,6 +172,7 @@ contract SignedEventStore is CrosschainVerifier, BytesUtil {
         uint256 threshold = registrar.getSigningThreshold(_sourceBlockchainId);
         if (signedEvents[eventDigest].whoVoted.length >= threshold) {
             signedEvents[eventDigest].actioned = true;
+            emit Dump("function call");
             // NOTE: In the call below, the _signature parameter isn't used. Could be cheaper to pass bytes("")
             functionCall.crossCallHandler(
                 _sourceBlockchainId,

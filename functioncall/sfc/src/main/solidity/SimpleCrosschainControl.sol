@@ -42,6 +42,8 @@ contract SimpleCrosschainControl is
 
     uint256 public myBlockchainId;
 
+    event Dump (string _log);
+
     /**
      * Crosschain Transaction event.
      *
@@ -132,6 +134,7 @@ contract SimpleCrosschainControl is
         bytes calldata _eventData,
         bytes calldata _signature
     ) public {
+        emit Dump("DEBUG3: I'm here.");
         decodeAndVerifyEvent(
             _sourceBcId,
             _cbcAddress,
@@ -184,7 +187,9 @@ contract SimpleCrosschainControl is
         );
 
         if (!isSuccess) {
-            emit CallFailure(getRevertMsg(returnValueEncoded));
+            emit Dump(getRevertMsg(returnValueEncoded));
+        } else {
+            emit Dump("Succeed");
         }
     }
 }
